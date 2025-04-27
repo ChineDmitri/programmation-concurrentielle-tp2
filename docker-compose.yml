@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  mysql:
+    container_name: mysql-tp2-ordonnancement
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: userdb
+      MYSQL_USER: springuser
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_HOST: '%'  # Permettre les connexions root de n'importe quelle IP
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --bind-address=0.0.0.0
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "springuser", "-ppassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  java-app:
+    container_name: java-fake-server
+    build:
+      context: ./fake-server-java
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/userdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: springuser
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
